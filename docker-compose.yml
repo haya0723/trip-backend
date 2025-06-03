@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine # 最新の安定版PostgreSQLイメージ
+    container_name: trip_postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: tripuser      # .envファイルで設定するユーザー名
+      POSTGRES_PASSWORD: trippassword  # .envファイルで設定するパスワード
+      POSTGRES_DB: tripdb          # .envファイルで設定するデータベース名
+    ports:
+      - "5432:5432" # ローカルの5432番ポートをコンテナの5432番ポートにマッピング
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # データ永続化のためのボリューム
+    networks:
+      - trip_network
+
+  app:
+    build: . # Dockerfileがあるディレクトリを指定
+    container_name: trip_app_backend
+    ports:
+      - "3001:3001" # ローカルの3001番ポートをコンテナの3001番ポートにマッピング (.envのPORTと合わせる)
+    env_file:
+      - .env # .envファイルから環境変数を読み込む
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=db # Docker Composeネットワーク内のサービス名
+      # DB_USER, DB_PASSWORD, DB_NAME, PORT, JWT_SECRET は .env から読み込まれる
+    volumes:
+      - ./src:/usr/src/app/src # ローカルのsrcディレクトリをコンテナにマウント（開発時のホットリロード用）
+    depends_on:
+      - db # dbサービスが起動してからappサービスを起動
+    networks:
+      - trip_network
+
+volumes:
+  postgres_data:
+
+networks:
+  trip_network:
+    driver: bridge
