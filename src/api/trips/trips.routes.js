@@ -22,6 +22,9 @@ router.put('/:tripId', tripsController.updateTrip);
 // DELETE /api/trips/:tripId - 特定の旅程を削除
 router.delete('/:tripId', tripsController.deleteTrip);
 
+// POST /api/trips/:tripId/generate-schedules-ai - AIによるスケジュール生成をトリガー
+router.post('/:tripId/generate-schedules-ai', tripsController.generateSchedulesAI);
+
 // ネストされたSchedulesルートをマウント
 // /api/trips/:tripId/schedules へのリクエストをschedulesRouterに流す
 router.use('/:tripId/schedules', schedulesRouter);
