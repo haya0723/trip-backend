@@ -18,7 +18,7 @@ async function createTrip(userId, tripData) {
     is_public = false 
   } = tripData;
 
-  const client = await db.pool.connect(); // db.getClient() を db.pool.connect() に修正
+  const client = await db.pool.connect(); 
 
   try {
     await client.query('BEGIN');
@@ -43,7 +43,6 @@ async function createTrip(userId, tripData) {
       `;
       let dayCount = 1;
       while (currentDate <= finalEndDate) {
-        // YYYY-MM-DD形式の文字列に変換
         const dateString = currentDate.toISOString().split('T')[0];
         const dayDescription = `${dayCount}日目`;
         await client.query(scheduleInsertQuery, [newTrip.id, dateString, dayDescription]);
@@ -54,7 +53,6 @@ async function createTrip(userId, tripData) {
 
     await client.query('COMMIT');
     
-    // 作成された旅程とスケジュールを一緒に取得して返す (同じトランザクションクライアントを使用)
     return getTripByIdWithSchedules(newTrip.id, userId, client);
 
   } catch (error) {
@@ -67,9 +65,9 @@ async function createTrip(userId, tripData) {
 }
 
 /**
- * 特定のユーザーのすべての旅程を取得する
+ * 特定のユーザーのすべての旅程をスケジュール情報と共に取得する
  * @param {string} userId - ユーザーID
- * @returns {Promise<Array<object>>} 旅程オブジェクトの配列
+ * @returns {Promise<Array<object>>} 旅程オブジェクト（schedules配列を含む）の配列
  */
 async function getTripsByUserId(userId) {
   const query = `
@@ -78,10 +76,21 @@ async function getTripsByUserId(userId) {
     ORDER BY start_date DESC, created_at DESC;
   `;
   try {
-    const { rows } = await db.query(query, [userId]);
-    return rows;
+    const { rows: trips } = await db.query(query, [userId]);
+    
+    const tripsWithSchedules = await Promise.all(trips.map(async (trip) => {
+      const schedulesQuery = `
+        SELECT * FROM public.schedules 
+        WHERE trip_id = $1 
+        ORDER BY date ASC;
+      `;
+      const { rows: scheduleRows } = await db.query(schedulesQuery, [trip.id]);
+      return { ...trip, schedules: scheduleRows || [] };
+    }));
+    
+    return tripsWithSchedules;
   } catch (error) {
-    console.error('[DEBUG trips.service.getTripsByUserId] Error fetching trips:', error);
+    console.error('[DEBUG trips.service.getTripsByUserId] Error fetching trips with schedules:', error);
     throw error;
   }
 }
