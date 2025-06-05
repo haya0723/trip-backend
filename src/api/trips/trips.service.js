@@ -1,10 +1,10 @@
 const db = require('../../db');
 
 /**
- * 新しい旅程を作成する
+ * 新しい旅程を作成し、期間内の空のスケジュールも自動生成する
  * @param {string} userId - ユーザーID
  * @param {object} tripData - 旅程データ { name, period_summary, start_date, end_date, destinations, status, cover_image_url, is_public }
- * @returns {Promise<object>} 作成された旅程オブジェクト
+ * @returns {Promise<object>} 作成された旅程オブジェクト（スケジュールを含む）
  */
 async function createTrip(userId, tripData) {
   const { 
@@ -15,24 +15,54 @@ async function createTrip(userId, tripData) {
     destinations, 
     status, 
     cover_image_url, 
-    is_public = false // デフォルトは非公開
+    is_public = false 
   } = tripData;
 
-  const query = `
-    INSERT INTO public.trips 
-      (user_id, name, period_summary, start_date, end_date, destinations, status, cover_image_url, is_public)
-    VALUES 
-      ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    RETURNING *;
-  `;
-  const values = [userId, name, period_summary, start_date, end_date, destinations, status, cover_image_url, is_public];
-  
+  const client = await db.getClient();
+
   try {
-    const { rows } = await db.query(query, values);
-    return rows[0];
+    await client.query('BEGIN');
+
+    const tripQuery = `
+      INSERT INTO public.trips 
+        (user_id, name, period_summary, start_date, end_date, destinations, status, cover_image_url, is_public)
+      VALUES 
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *;
+    `;
+    const tripValues = [userId, name, period_summary, start_date, end_date, destinations, status, cover_image_url, is_public];
+    const { rows: tripRows } = await client.query(tripQuery, tripValues);
+    const newTrip = tripRows[0];
+
+    if (newTrip.start_date && newTrip.end_date) {
+      let currentDate = new Date(newTrip.start_date);
+      const finalEndDate = new Date(newTrip.end_date);
+      const scheduleInsertQuery = `
+        INSERT INTO public.schedules (trip_id, date, day_description) 
+        VALUES ($1, $2, $3);
+      `;
+      let dayCount = 1;
+      while (currentDate <= finalEndDate) {
+        // YYYY-MM-DD形式の文字列に変換
+        const dateString = currentDate.toISOString().split('T')[0];
+        const dayDescription = `${dayCount}日目`;
+        await client.query(scheduleInsertQuery, [newTrip.id, dateString, dayDescription]);
+        currentDate.setDate(currentDate.getDate() + 1);
+        dayCount++;
+      }
+    }
+
+    await client.query('COMMIT');
+    
+    // 作成された旅程とスケジュールを一緒に取得して返す
+    return getTripByIdWithSchedules(newTrip.id, userId);
+
   } catch (error) {
-    console.error('[DEBUG trips.service.createTrip] Error creating trip:', error);
+    await client.query('ROLLBACK');
+    console.error('[DEBUG trips.service.createTrip] Error creating trip with schedules:', error);
     throw error;
+  } finally {
+    client.release();
   }
 }
 
@@ -95,7 +125,6 @@ async function updateTripById(tripId, userId, tripData) {
     is_public 
   } = tripData;
 
-  // 更新するフィールドと値を動的に構築
   const setClauses = [];
   const values = [];
   let valueCount = 1;
@@ -110,11 +139,9 @@ async function updateTripById(tripId, userId, tripData) {
   if (is_public !== undefined) { setClauses.push(`is_public = $${valueCount++}`); values.push(is_public); }
 
   if (setClauses.length === 0) {
-    // 更新するフィールドがない場合は、現在の情報をそのまま返すかエラーとする
     return getTripById(tripId, userId); 
   }
 
-  // updated_at はトリガーで自動更新される
   const query = `
     UPDATE public.trips 
     SET ${setClauses.join(', ')}
@@ -169,19 +196,18 @@ async function getTripByIdWithSchedules(tripId, userId) {
     WHERE trip_id = $1 
     ORDER BY date ASC; 
   `;
-  // TODO: イベントも取得して各スケジュールにネストする場合は、さらにクエリとマージ処理が必要
 
   try {
     const { rows: tripRows } = await db.query(tripQuery, [tripId, userId]);
     if (tripRows.length === 0) {
-      return null; // 旅程が見つからないか、アクセス権がない
+      return null; 
     }
     const trip = tripRows[0];
     console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched trip:', trip);
 
     const { rows: scheduleRows } = await db.query(schedulesQuery, [tripId]);
     console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched schedules:', scheduleRows);
-    trip.schedules = scheduleRows || []; // schedulesプロパティとしてスケジュール配列を追加
+    trip.schedules = scheduleRows || []; 
 
     return trip;
   } catch (error) {
@@ -196,5 +222,5 @@ module.exports = {
   getTripById,
   updateTripById,
   deleteTripById,
-  getTripByIdWithSchedules, // 追加
+  getTripByIdWithSchedules,
 };
