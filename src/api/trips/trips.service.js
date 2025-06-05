@@ -153,10 +153,48 @@ async function deleteTripById(tripId, userId) {
   }
 }
 
+/**
+ * 特定の旅程をIDで取得し、関連するスケジュールもすべて取得する (ユーザーIDも検証)
+ * @param {string} tripId - 旅程ID
+ * @param {string} userId - ユーザーID (旅程の所有権検証のため)
+ * @returns {Promise<object|null>} 旅程オブジェクト（schedules配列を含む）またはnull
+ */
+async function getTripByIdWithSchedules(tripId, userId) {
+  const tripQuery = `
+    SELECT * FROM public.trips 
+    WHERE id = $1 AND user_id = $2;
+  `;
+  const schedulesQuery = `
+    SELECT * FROM public.schedules 
+    WHERE trip_id = $1 
+    ORDER BY date ASC; 
+  `;
+  // TODO: イベントも取得して各スケジュールにネストする場合は、さらにクエリとマージ処理が必要
+
+  try {
+    const { rows: tripRows } = await db.query(tripQuery, [tripId, userId]);
+    if (tripRows.length === 0) {
+      return null; // 旅程が見つからないか、アクセス権がない
+    }
+    const trip = tripRows[0];
+    console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched trip:', trip);
+
+    const { rows: scheduleRows } = await db.query(schedulesQuery, [tripId]);
+    console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched schedules:', scheduleRows);
+    trip.schedules = scheduleRows || []; // schedulesプロパティとしてスケジュール配列を追加
+
+    return trip;
+  } catch (error) {
+    console.error('[DEBUG trips.service.getTripByIdWithSchedules] Error fetching trip with schedules:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   createTrip,
   getTripsByUserId,
   getTripById,
   updateTripById,
   deleteTripById,
+  getTripByIdWithSchedules, // 追加
 };

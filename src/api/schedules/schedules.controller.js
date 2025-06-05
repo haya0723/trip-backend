@@ -30,8 +30,14 @@ async function createSchedule(req, res, next) {
     if (!scheduleData.date) {
       return res.status(400).json({ error: 'Schedule date is required.' });
     }
-    const newSchedule = await scheduleService.createSchedule(tripId, scheduleData);
-    res.status(201).json(newSchedule);
+    await scheduleService.createSchedule(tripId, scheduleData);
+    // スケジュール追加後、更新された旅程全体（スケジュールリストを含む）を取得して返す
+    const updatedTrip = await tripService.getTripByIdWithSchedules(tripId, req.user.id);
+    if (!updatedTrip) {
+      // 通常ここには来ないはずだが、念のため
+      return res.status(404).json({ error: 'Trip not found after creating schedule.' });
+    }
+    res.status(201).json(updatedTrip);
   } catch (error) {
     console.error('[DEBUG schedules.controller.createSchedule] Error:', error);
     res.status(500).json({ error: 'Failed to create schedule.' });
@@ -79,11 +85,16 @@ async function updateSchedule(req, res, next) {
         return res.status(404).json({ error: 'Schedule not found or does not belong to this trip for update.' });
     }
 
-    const updatedSchedule = await scheduleService.updateScheduleById(scheduleId, scheduleData);
-    if (!updatedSchedule) { // updateScheduleByIdがnullを返すのは通常エラー時だが念のため
-        return res.status(404).json({ error: 'Failed to update schedule or schedule not found after update.'})
+    await scheduleService.updateScheduleById(scheduleId, scheduleData);
+    // スケジュール更新後、更新された旅程全体（スケジュールリストを含む）を取得して返す
+    // existingSchedule.trip_id を使用して、更新対象のスケジュールが属する旅程のIDを取得
+    const tripId = existingSchedule.trip_id; 
+    const updatedTrip = await tripService.getTripByIdWithSchedules(tripId, req.user.id);
+    if (!updatedTrip) {
+      // 通常ここには来ないはずだが、念のため
+      return res.status(404).json({ error: 'Trip not found after updating schedule.' });
     }
-    res.status(200).json(updatedSchedule);
+    res.status(200).json(updatedTrip);
   } catch (error) {
     console.error('[DEBUG schedules.controller.updateSchedule] Error:', error);
     res.status(500).json({ error: 'Failed to update schedule.' });
