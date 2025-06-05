@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router({ mergeParams: true }); 
 const schedulesController = require('./schedules.controller');
 const authenticateToken = require('../../middleware/authMiddleware');
+const eventsRouter = require('../events/events.routes'); // eventsRouterをインポート
 
 // このルーターのすべてのルートに適用するミドルウェア
 router.use(authenticateToken); // まず認証
@@ -22,5 +23,9 @@ router.put('/:scheduleId', schedulesController.updateSchedule);
 
 // DELETE /api/trips/:tripId/schedules/:scheduleId - 特定の日毎スケジュールを削除
 router.delete('/:scheduleId', schedulesController.deleteSchedule);
+
+// ネストされたEventsルートをマウント
+// /api/schedules/:scheduleId/events へのリクエストをeventsRouterに流す
+router.use('/:scheduleId/events', eventsRouter);
 
 module.exports = router;

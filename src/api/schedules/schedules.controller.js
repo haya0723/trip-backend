@@ -6,14 +6,14 @@ async function authorizeTripAccess(req, res, next) {
   try {
     const userId = req.user.id;
     const { tripId } = req.params;
-    if (!tripId) { // ルート定義でtripIdが必須なら不要だが念のため
+    if (!tripId) { 
         return res.status(400).json({ error: 'Trip ID is required.' });
     }
     const trip = await tripService.getTripById(tripId, userId);
     if (!trip) {
       return res.status(404).json({ error: 'Trip not found or you do not have access to this trip.' });
     }
-    req.trip = trip; // 後続のハンドラで使えるようにリクエストオブジェクトに格納
+    req.trip = trip; 
     next();
   } catch (error) {
     console.error('[DEBUG schedules.controller.authorizeTripAccess] Error:', error);
@@ -21,20 +21,43 @@ async function authorizeTripAccess(req, res, next) {
   }
 }
 
+// scheduleIdが現在のユーザーの旅程のものであるかを確認するミドルウェア的な関数
+async function authorizeScheduleAccess(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { scheduleId } = req.params;
+    if (!scheduleId) {
+        return res.status(400).json({ error: 'Schedule ID is required.' });
+    }
+    const schedule = await scheduleService.getScheduleById(scheduleId);
+    if (!schedule) {
+      return res.status(404).json({ error: 'Schedule not found.' });
+    }
+    // スケジュールが属する旅程の所有権を確認
+    const trip = await tripService.getTripById(schedule.trip_id, userId);
+    if (!trip) {
+      return res.status(403).json({ error: 'Access denied: Schedule does not belong to your trip or trip not found.' });
+    }
+    req.schedule = schedule; 
+    req.trip = trip; 
+    next();
+  } catch (error) {
+    console.error('[DEBUG schedules.controller.authorizeScheduleAccess] Error:', error);
+    res.status(500).json({ error: 'Failed to authorize schedule access.' });
+  }
+}
+
 // 新しい日毎スケジュールを作成
 async function createSchedule(req, res, next) {
   try {
-    const { tripId } = req.params; // authorizeTripAccessで検証済み
+    const { tripId } = req.params; 
     const scheduleData = req.body;
-    // TODO: scheduleDataのバリデーション (例: dateが必須など)
     if (!scheduleData.date) {
       return res.status(400).json({ error: 'Schedule date is required.' });
     }
     await scheduleService.createSchedule(tripId, scheduleData);
-    // スケジュール追加後、更新された旅程全体（スケジュールリストを含む）を取得して返す
     const updatedTrip = await tripService.getTripByIdWithSchedules(tripId, req.user.id);
     if (!updatedTrip) {
-      // 通常ここには来ないはずだが、念のため
       return res.status(404).json({ error: 'Trip not found after creating schedule.' });
     }
     res.status(201).json(updatedTrip);
@@ -47,7 +70,7 @@ async function createSchedule(req, res, next) {
 // 特定の旅程の日毎スケジュール一覧を取得
 async function getSchedules(req, res, next) {
   try {
-    const { tripId } = req.params; // authorizeTripAccessで検証済み
+    const { tripId } = req.params; 
     const schedules = await scheduleService.getSchedulesByTripId(tripId);
     res.status(200).json(schedules);
   } catch (error) {
@@ -59,10 +82,9 @@ async function getSchedules(req, res, next) {
 // 特定の日毎スケジュールを取得
 async function getSchedule(req, res, next) {
   try {
-    // const { tripId } = req.params; // authorizeTripAccessで検証済みだが、scheduleIdの所有権も確認
     const { scheduleId } = req.params;
     const schedule = await scheduleService.getScheduleById(scheduleId);
-    if (!schedule || schedule.trip_id !== req.trip.id) { // req.tripはauthorizeTripAccessでセット
+    if (!schedule || schedule.trip_id !== req.trip.id) { 
       return res.status(404).json({ error: 'Schedule not found or does not belong to this trip.' });
     }
     res.status(200).json(schedule);
@@ -77,21 +99,16 @@ async function updateSchedule(req, res, next) {
   try {
     const { scheduleId } = req.params;
     const scheduleData = req.body;
-    // TODO: scheduleDataのバリデーション
     
-    // 先にscheduleを取得してtripIdが一致するか確認
     const existingSchedule = await scheduleService.getScheduleById(scheduleId);
-    if (!existingSchedule || existingSchedule.trip_id !== req.trip.id) { // req.tripはauthorizeTripAccessでセット
+    if (!existingSchedule || existingSchedule.trip_id !== req.trip.id) { 
         return res.status(404).json({ error: 'Schedule not found or does not belong to this trip for update.' });
     }
 
     await scheduleService.updateScheduleById(scheduleId, scheduleData);
-    // スケジュール更新後、更新された旅程全体（スケジュールリストを含む）を取得して返す
-    // existingSchedule.trip_id を使用して、更新対象のスケジュールが属する旅程のIDを取得
     const tripId = existingSchedule.trip_id; 
     const updatedTrip = await tripService.getTripByIdWithSchedules(tripId, req.user.id);
     if (!updatedTrip) {
-      // 通常ここには来ないはずだが、念のため
       return res.status(404).json({ error: 'Trip not found after updating schedule.' });
     }
     res.status(200).json(updatedTrip);
@@ -107,12 +124,12 @@ async function deleteSchedule(req, res, next) {
     const { scheduleId } = req.params;
 
     const existingSchedule = await scheduleService.getScheduleById(scheduleId);
-    if (!existingSchedule || existingSchedule.trip_id !== req.trip.id) { // req.tripはauthorizeTripAccessでセット
+    if (!existingSchedule || existingSchedule.trip_id !== req.trip.id) { 
         return res.status(404).json({ error: 'Schedule not found or does not belong to this trip for deletion.' });
     }
 
     const deletedSchedule = await scheduleService.deleteScheduleById(scheduleId);
-     if (!deletedSchedule) { // deleteScheduleByIdがnullを返すのは通常エラー時だが念のため
+     if (!deletedSchedule) { 
         return res.status(404).json({ error: 'Failed to delete schedule or schedule not found after deletion attempt.'})
     }
     res.status(200).json({ message: 'Schedule deleted successfully.', deletedSchedule });
@@ -123,7 +140,8 @@ async function deleteSchedule(req, res, next) {
 }
 
 module.exports = {
-  authorizeTripAccess, // ミドルウェアとしてエクスポート
+  authorizeTripAccess, 
+  authorizeScheduleAccess, // 新しくエクスポート
   createSchedule,
   getSchedules,
   getSchedule,
