@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const tripsController = require('./trips.controller');
 const authenticateToken = require('../../middleware/authMiddleware');
+const schedulesRouter = require('../schedules/schedules.routes'); // schedulesRouterをインポート
 
 // すべての /api/trips ルートに認証ミドルウェアを適用
 router.use(authenticateToken);
@@ -20,5 +21,9 @@ router.put('/:tripId', tripsController.updateTrip);
 
 // DELETE /api/trips/:tripId - 特定の旅程を削除
 router.delete('/:tripId', tripsController.deleteTrip);
+
+// ネストされたSchedulesルートをマウント
+// /api/trips/:tripId/schedules へのリクエストをschedulesRouterに流す
+router.use('/:tripId/schedules', schedulesRouter);
 
 module.exports = router;
