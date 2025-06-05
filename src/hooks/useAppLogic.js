@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios'; // axios をインポート
 
-// バックエンドAPIのベースURL (実際のCloud RunサービスのURLに置き換える)
+// バックエンドAPIのベースURL
 const BACKEND_URL = 'https://trip-app-final-v2-493005991008.asia-northeast1.run.app'; // ユーザー確認済みの正しいURL
 
 // ダミーデータ (初期表示用、API連携後は削除または置き換え)
@@ -15,11 +15,11 @@ const initialDummyTrips = [
   { id: 2, name: '京都紅葉狩り', period: '2023/11/20 - 2023/11/23 (3泊4日)', destinations: '京都', status: '完了', coverImage: 'https://images.unsplash.com/photo-1534564737930-39a482142209?q=80&w=1000&auto=format&fit=crop', schedules: [], overallMemory: null, isPublic: true, publicDescription: "紅葉シーズンの京都は最高でした！特に清水寺のライトアップは必見です。", publicTags: ["紅葉", "京都", "寺社仏閣"], overallAuthorComment: "清水寺のライトアップは本当に幻想的でした。人も多かったですが、それだけの価値はあります。食事は先斗町で京料理をいただきましたが、こちらもおすすめです。" },
   { id: 3, name: '沖縄リゾート満喫', period: '2024/07/01 - 2024/07/05 (4泊5日)', destinations: '那覇、恩納村', status: '予約済み', coverImage: null, schedules: [], overallMemory: null, isPublic: false },
 ];
-export const initialDummyPublicTrips = [ /* ... (内容は省略) ... */ ];
+export const initialDummyPublicTrips = [ /* ... (内容は省略、以前のコードからコピー) ... */ ];
 
 
 export const useAppLogic = () => {
-  const [currentScreen, setCurrentScreen] = useState('login'); // 初期画面をログインに
+  const [currentScreen, setCurrentScreen] = useState('login');
   const [editingPlan, setEditingPlan] = useState(null);
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [selectedPlaceDetail, setSelectedPlaceDetail] = useState(null);
@@ -29,13 +29,10 @@ export const useAppLogic = () => {
   const [selectedPublicTripDetail, setSelectedPublicTripDetail] = useState(null);
   const [currentHotelForRecommendations, setCurrentHotelForRecommendations] = useState(null);
   const [userProfile, setUserProfile] = useState({
-    nickname: '',
-    bio: '',
-    avatarUrl: '',
-    favoritePlaces: []
+    nickname: '', bio: '', avatarUrl: '', favoritePlaces: []
   });
-  const [currentUser, setCurrentUser] = useState(null); // { id, nickname, email, token }
-  const [trips, setTrips] = useState(initialDummyTrips); // API連携後は空配列で初期化
+  const [currentUser, setCurrentUser] = useState(null);
+  const [trips, setTrips] = useState(initialDummyTrips);
   const [editingEventDetails, setEditingEventDetails] = useState(null);
   const [placeSearchContext, setPlaceSearchContext] = useState(null);
   const [aiRecommendedCourses, setAiRecommendedCourses] = useState([]);
@@ -43,30 +40,63 @@ export const useAppLogic = () => {
   const [editingPublishSettingsForTripId, setEditingPublishSettingsForTripId] = useState(null);
   const [editingHotelDetails, setEditingHotelDetails] = useState(null);
 
+  const fetchUserProfile = async (userId, token) => {
+    console.log(`[useAppLogic] fetchUserProfile called for userId: ${userId}`);
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/users/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log('[useAppLogic] fetchUserProfile - API response.data:', response.data);
+      setUserProfile(response.data);
+      console.log('[useAppLogic] fetchUserProfile - userProfile state should be updated.');
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error.response ? error.response.data : error.message);
+    }
+  };
+
   useEffect(() => {
-    // ローカルストレージからトークンを読み込み、自動ログイン試行 (任意)
+    console.log('[useAppLogic] Initial useEffect triggered.');
     const storedToken = localStorage.getItem('authToken');
     const storedUser = localStorage.getItem('authUser');
+    console.log('[useAppLogic] Initial useEffect - storedToken:', storedToken ? 'present' : 'absent', 'storedUser:', storedUser ? 'present' : 'absent');
     if (storedToken && storedUser) {
-      setCurrentUser({ ...JSON.parse(storedUser), token: storedToken });
-      // TODO: トークン検証APIを呼び出し、有効ならユーザー情報を取得してsetUserProfile
-      setCurrentScreen('tripList');
+      try {
+        const userData = JSON.parse(storedUser);
+        console.log('[useAppLogic] Initial useEffect - parsed userData:', userData);
+        setCurrentUser({ ...userData, token: storedToken });
+        console.log('[useAppLogic] Initial useEffect - currentUser state set, about to call fetchUserProfile.');
+        fetchUserProfile(userData.id, storedToken); 
+        setCurrentScreen('tripList');
+      } catch (e) {
+        console.error('[useAppLogic] Initial useEffect - Error parsing storedUser from localStorage:', e);
+        // Clear invalid stored data
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
+        setCurrentScreen('login');
+      }
+    } else {
+      setCurrentScreen('login'); // Ensure login screen if no token/user
     }
   }, []);
 
-
   useEffect(() => {
+    console.log('[useAppLogic] currentUser/currentScreen effect triggered. currentUser:', currentUser ? 'present' : 'absent', 'currentScreen:', currentScreen);
     const authScreens = ['login', 'signup', 'passwordReset', 'accountDeletionConfirm'];
-    if (!currentUser && !authScreens.includes(currentScreen)) { setCurrentScreen('login'); }
-    else if (currentUser && authScreens.includes(currentScreen) && currentScreen !== 'accountDeletionConfirm') { setCurrentScreen('tripList'); }
+    if (!currentUser && !authScreens.includes(currentScreen)) { 
+      console.log('[useAppLogic] No currentUser and not on auth screen, redirecting to login.');
+      setCurrentScreen('login'); 
+    }
+    else if (currentUser && authScreens.includes(currentScreen) && currentScreen !== 'accountDeletionConfirm') { 
+      console.log('[useAppLogic] currentUser exists and on auth screen (not deletion), redirecting to tripList.');
+      setCurrentScreen('tripList'); 
+    }
   }, [currentUser, currentScreen]);
 
   const handleSignup = async (signupData) => {
+    console.log(`Attempting signup to: ${BACKEND_URL}/api/auth/signup with data:`, signupData);
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/signup`, signupData);
-      const { user } = response.data; // トークンはsignup時には返さない想定
-      // setCurrentUser({ id: user.id, nickname: user.nickname, email: user.email, token: null }); // signup直後はトークンなし
-      // setUserProfile({ nickname: user.nickname, email: user.email, bio: '', avatarUrl: '', favoritePlaces: [] });
+      const { nickname, email, password } = signupData; 
+      await axios.post(`${BACKEND_URL}/api/auth/signup`, { nickname, email, password }); 
       alert('ユーザー登録が完了しました。ログインしてください。');
       setCurrentScreen('login');
     } catch (error) {
@@ -76,15 +106,34 @@ export const useAppLogic = () => {
   };
 
   const handleLogin = async (loginData) => {
-    console.log(`Attempting login to: ${BACKEND_URL}/api/auth/login with data:`, loginData); 
+    console.log(`Attempting login to: ${BACKEND_URL}/api/auth/login with data:`, loginData);
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/login`, loginData);
-      const { token, user } = response.data;
-      setCurrentUser({ id: user.id, nickname: user.nickname, email: user.email, token });
-      setUserProfile(prev => ({...prev, nickname: user.nickname, email: user.email })); // プロフィール情報も更新
-      localStorage.setItem('authToken', token); // トークンを保存
-      localStorage.setItem('authUser', JSON.stringify({id: user.id, nickname: user.nickname, email: user.email }));
-      setCurrentScreen('tripList');
+      const response = await axios.post(`${BACKEND_URL}/api/auth/login`, { 
+        email: loginData.email, 
+        password: loginData.password 
+      });
+      console.log('[useAppLogic] handleLogin - Login API response received. response.data:', response.data); 
+      
+      if (response.data && response.data.token && response.data.user) {
+        const { token, user } = response.data;
+        console.log('[useAppLogic] handleLogin - Token and user object found in response. User:', user, 'Token present:', !!token);
+        setCurrentUser({ id: user.id, nickname: user.nickname, email: user.email, token });
+        console.log('[useAppLogic] handleLogin - currentUser state updated.');
+        
+        console.log('[useAppLogic] handleLogin - Before calling fetchUserProfile. User ID:', user.id, 'Token present:', !!token);
+        await fetchUserProfile(user.id, token); 
+        console.log('[useAppLogic] handleLogin - After calling fetchUserProfile.');
+        
+        console.log('[useAppLogic] handleLogin - Attempting to set items in localStorage. Token:', token, 'User to store:', {id: user.id, nickname: user.nickname, email: user.email });
+        localStorage.setItem('authToken', token);
+        console.log('[useAppLogic] handleLogin - authToken set in localStorage.');
+        localStorage.setItem('authUser', JSON.stringify({id: user.id, nickname: user.nickname, email: user.email }));
+        console.log('[useAppLogic] handleLogin - authUser set in localStorage. Value:', localStorage.getItem('authUser'));
+        setCurrentScreen('tripList');
+      } else {
+        console.error('[useAppLogic] handleLogin - Invalid response structure from login API:', response.data);
+        alert('ログインレスポンスの形式が不正です。');
+      }
     } catch (error) {
       console.error('Login failed:', error.response ? error.response.data : error.message);
       alert(`ログインに失敗しました: ${error.response?.data?.error || error.message}`);
@@ -93,14 +142,94 @@ export const useAppLogic = () => {
 
   const handleLogout = () => {
     if (window.confirm('本当にログアウトしますか？')) {
+      console.log('[useAppLogic] handleLogout - Logging out.');
       setCurrentUser(null);
+      setUserProfile({ nickname: '', bio: '', avatarUrl: '', favoritePlaces: [] });
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');
+      console.log('[useAppLogic] handleLogout - Cleared currentUser, userProfile, and localStorage items.');
       setCurrentScreen('login');
     }
   };
 
-  // 他のハンドラ関数は変更なし (内容は省略)
+  const handleShowProfileEdit = () => setCurrentScreen('profileEdit');
+
+  const handleSaveProfile = async (profileDataToUpdate, avatarFile = null) => {
+    console.log('[useAppLogic] handleSaveProfile called. profileDataToUpdate:', profileDataToUpdate, 'avatarFile:', avatarFile);
+    if (!currentUser || !currentUser.token) {
+      alert('ログインしていません。ログインしてください。');
+      setCurrentScreen('login');
+      return;
+    }
+
+    let finalAvatarUrl = profileDataToUpdate.avatarUrl; 
+    if (avatarFile === null && profileDataToUpdate.avatarUrl === undefined) {
+        finalAvatarUrl = userProfile.avatarUrl; 
+    }
+
+    try {
+      if (avatarFile) {
+        console.log('Attempting to upload avatar file:', avatarFile.name);
+        const formData = new FormData();
+        formData.append('avatar', avatarFile);
+
+        const uploadResponse = await axios.post(
+          `${BACKEND_URL}/api/upload/avatar`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Authorization: `Bearer ${currentUser.token}`,
+            },
+          }
+        );
+        finalAvatarUrl = uploadResponse.data.avatarUrl;
+        console.log('Avatar uploaded, URL:', finalAvatarUrl);
+      }
+
+      const payload = {
+        nickname: profileDataToUpdate.nickname,
+        bio: profileDataToUpdate.bio,
+        avatarUrl: finalAvatarUrl, 
+      };
+      
+      Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+
+      console.log('Attempting to save profile with data:', payload);
+      const response = await axios.put(
+        `${BACKEND_URL}/api/users/profile`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${currentUser.token}`,
+          },
+        }
+      );
+
+      const updatedProfileFromServer = response.data;
+      console.log('[useAppLogic] handleSaveProfile - Profile update API success. Response data:', updatedProfileFromServer);
+      setUserProfile(updatedProfileFromServer); 
+      console.log('[useAppLogic] handleSaveProfile - userProfile state updated with server response.');
+      setCurrentUser(prev => ({ ...prev, 
+        nickname: updatedProfileFromServer.nickname, 
+      }));
+      console.log('[useAppLogic] handleSaveProfile - currentUser nickname updated.');
+      const storedUser = JSON.parse(localStorage.getItem('authUser'));
+      if (storedUser) {
+        const newStoredUser = { ...storedUser, nickname: updatedProfileFromServer.nickname };
+        localStorage.setItem('authUser', JSON.stringify(newStoredUser));
+        console.log('[useAppLogic] handleSaveProfile - authUser in localStorage updated. New value:', newStoredUser);
+      }
+
+      alert('プロフィールを更新しました。');
+      setCurrentScreen('myProfile');
+    } catch (error) {
+      console.error('Failed to save profile:', error.response ? error.response.data : error.message);
+      alert(`プロフィールの更新に失敗しました: ${error.response?.data?.error || error.message}`);
+    }
+  };
+  
+  // 他のハンドラ関数 (内容は以前のコードからコピー)
   const handleShowPlanForm = (planToEdit = null) => { setCurrentScreen('planForm'); setEditingPlan(planToEdit); setSelectedTrip(null); };
   const handleShowTripDetail = (trip) => { setSelectedTrip(trip); setCurrentScreen('tripDetail'); };
   const handleSavePlan = (planData) => { /* ... */ };
@@ -127,8 +256,6 @@ export const useAppLogic = () => {
   const handleAddFavoritePlace = (placeData) => { /* ... */ };
   const handleRemoveFavoritePlace = (placeIdOrName) => { /* ... */ };
   const handleShowHotelRecommendations = (hotel) => { setCurrentHotelForRecommendations(hotel); setAiRecommendedCourses([]); setCurrentScreen('hotelRecommendations'); };
-  const handleShowProfileEdit = () => setCurrentScreen('profileEdit');
-  const handleSaveProfile = (updatedProfile) => { setUserProfile(prevProfile => ({ ...prevProfile, ...updatedProfile })); setCurrentScreen('myProfile'); };
   const handleShowAccountSettings = () => setCurrentScreen('accountSettings');
   const handleChangeTripStatus = (tripId, newStatus) => { /* ... */ };
   const handleToggleTripPublicStatus = (tripId) => { /* ... */ };

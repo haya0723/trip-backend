@@ -41,8 +41,19 @@ try {
   // APIルーターのマウント
   const authRoutes = require('./api/auth/auth.routes');
   app.use('/api/auth', authRoutes);
+  console.log('Auth routes mounted on /api/auth');
 
-  // TODO: ここに他のルートを追加していく (例: app.use('/api/users', userRoutes);)
+  const userRoutes = require('./api/users/users.routes'); // ユーザールートをインポート
+  app.use('/api/users', userRoutes); // ユーザールートをマウント
+  console.log('User routes mounted on /api/users');
+
+  const uploadRoutes = require('./api/upload/upload.routes'); // アップロードルートをインポート
+  app.use('/api/upload', uploadRoutes); // アップロードルートをマウント
+  console.log('Upload routes mounted on /api/upload');
+
+  const tripsRoutes = require('./api/trips/trips.routes'); // 旅程ルートをインポート
+  app.use('/api/trips', tripsRoutes); // 旅程ルートをマウント
+  console.log('Trips routes mounted on /api/trips');
 
   app.listen(port, () => {
     console.log(`Server listening at http://localhost:${port}`);
