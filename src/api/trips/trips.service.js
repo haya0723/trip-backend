@@ -18,7 +18,7 @@ async function createTrip(userId, tripData) {
     is_public = false 
   } = tripData;
 
-  const client = await db.getClient();
+  const client = await db.pool.connect(); // db.getClient() を db.pool.connect() に修正
 
   try {
     await client.query('BEGIN');
@@ -54,8 +54,8 @@ async function createTrip(userId, tripData) {
 
     await client.query('COMMIT');
     
-    // 作成された旅程とスケジュールを一緒に取得して返す
-    return getTripByIdWithSchedules(newTrip.id, userId);
+    // 作成された旅程とスケジュールを一緒に取得して返す (同じトランザクションクライアントを使用)
+    return getTripByIdWithSchedules(newTrip.id, userId, client);
 
   } catch (error) {
     await client.query('ROLLBACK');
@@ -184,9 +184,10 @@ async function deleteTripById(tripId, userId) {
  * 特定の旅程をIDで取得し、関連するスケジュールもすべて取得する (ユーザーIDも検証)
  * @param {string} tripId - 旅程ID
  * @param {string} userId - ユーザーID (旅程の所有権検証のため)
+ * @param {object} [queryRunner=db] - オプショナル: データベースクライアント (トランザクション用)
  * @returns {Promise<object|null>} 旅程オブジェクト（schedules配列を含む）またはnull
  */
-async function getTripByIdWithSchedules(tripId, userId) {
+async function getTripByIdWithSchedules(tripId, userId, queryRunner = db) {
   const tripQuery = `
     SELECT * FROM public.trips 
     WHERE id = $1 AND user_id = $2;
@@ -198,14 +199,14 @@ async function getTripByIdWithSchedules(tripId, userId) {
   `;
 
   try {
-    const { rows: tripRows } = await db.query(tripQuery, [tripId, userId]);
+    const { rows: tripRows } = await queryRunner.query(tripQuery, [tripId, userId]);
     if (tripRows.length === 0) {
       return null; 
     }
     const trip = tripRows[0];
     console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched trip:', trip);
 
-    const { rows: scheduleRows } = await db.query(schedulesQuery, [tripId]);
+    const { rows: scheduleRows } = await queryRunner.query(schedulesQuery, [tripId]);
     console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched schedules:', scheduleRows);
     trip.schedules = scheduleRows || []; 
 
