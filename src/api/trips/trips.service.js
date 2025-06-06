@@ -78,12 +78,14 @@ async function getTripsByUserId(userId) {
   try {
     const { rows: trips } = await db.query(query, [userId]);
     
+    // 各旅程にスケジュール情報を追加
     const tripsWithSchedules = await Promise.all(trips.map(async (trip) => {
       const schedulesQuery = `
         SELECT * FROM public.schedules 
         WHERE trip_id = $1 
         ORDER BY date ASC;
       `;
+      // 注意: ここではトランザクション外なので、デフォルトのdb.queryを使用
       const { rows: scheduleRows } = await db.query(schedulesQuery, [trip.id]);
       return { ...trip, schedules: scheduleRows || [] };
     }));
