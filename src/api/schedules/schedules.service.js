@@ -1,9 +1,9 @@
 const db = require('../../db');
+const eventsService = require('../events/events.service'); // eventsServiceをインポート
 
 // ホテル情報を整形するヘルパー関数
 function formatHotelInfo(scheduleRow) {
   if (!scheduleRow) return null;
-  // ホテル関連のカラムが一つでも存在すればオブジェクトを返す
   if (scheduleRow.hotel_name || scheduleRow.hotel_address || scheduleRow.hotel_check_in_time || scheduleRow.hotel_check_out_time || scheduleRow.hotel_reservation_number || scheduleRow.hotel_notes) {
     return {
       name: scheduleRow.hotel_name,
@@ -14,18 +14,20 @@ function formatHotelInfo(scheduleRow) {
       notes: scheduleRow.hotel_notes,
     };
   }
-  return null; // ホテル情報が全くない場合はnull
+  return null;
 }
 
-// DBの行データからサービス層のスケジュールオブジェクトに変換
-function mapRowToScheduleObject(row) {
+// DBの行データからサービス層のスケジュールオブジェクトに変換 (イベント情報も含む)
+async function mapRowToScheduleObject(row) { // asyncに変更
   if (!row) return null;
+  const events = await eventsService.getEventsByScheduleId(row.id); // イベント情報を取得
   return {
     id: row.id,
     trip_id: row.trip_id,
     date: row.date,
     day_description: row.day_description,
     hotel_info: formatHotelInfo(row),
+    events: events || [], // 取得したイベント情報を追加
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -54,7 +56,7 @@ async function createSchedule(tripId, scheduleData) {
   
   try {
     const { rows } = await db.query(query, values);
-    return mapRowToScheduleObject(rows[0]);
+    return mapRowToScheduleObject(rows[0]); // mapRowToScheduleObject は async なので await は不要 (呼び出し側で await する)
   } catch (error) {
     console.error('[DEBUG schedules.service.createSchedule] Error:', error);
     throw error;
@@ -74,7 +76,7 @@ async function getSchedulesByTripId(tripId) {
   `;
   try {
     const { rows } = await db.query(query, [tripId]);
-    return rows.map(mapRowToScheduleObject);
+    return Promise.all(rows.map(mapRowToScheduleObject)); // mapが非同期関数になったためPromise.allで待つ
   } catch (error) {
     console.error('[DEBUG schedules.service.getSchedulesByTripId] Error:', error);
     throw error;
@@ -93,7 +95,7 @@ async function getScheduleById(scheduleId) {
   `;
   try {
     const { rows } = await db.query(query, [scheduleId]);
-    return mapRowToScheduleObject(rows[0]);
+    return mapRowToScheduleObject(rows[0]); // mapRowToScheduleObject は async なので await は不要 (呼び出し側で await する)
   } catch (error) {
     console.error('[DEBUG schedules.service.getScheduleById] Error:', error);
     throw error;
@@ -123,7 +125,9 @@ async function updateScheduleById(scheduleId, scheduleData) {
   if (hotel_info.notes !== undefined) { setClauses.push(`hotel_notes = $${valueCount++}`); values.push(hotel_info.notes); }
 
   if (setClauses.length === 0) {
-    return getScheduleById(scheduleId); 
+    // 更新対象がない場合は、現在のスケジュール情報をイベント付きで再取得して返す
+    const currentRow = await db.query('SELECT * FROM public.schedules WHERE id = $1', [scheduleId]);
+    return mapRowToScheduleObject(currentRow.rows[0]);
   }
 
   const query = `
@@ -136,7 +140,7 @@ async function updateScheduleById(scheduleId, scheduleData) {
 
   try {
     const { rows } = await db.query(query, values);
-    return mapRowToScheduleObject(rows[0]);
+    return mapRowToScheduleObject(rows[0]); // mapRowToScheduleObject は async なので await は不要 (呼び出し側で await する)
   } catch (error) {
     console.error('[DEBUG schedules.service.updateScheduleById] Error:', error);
     throw error;
@@ -156,7 +160,9 @@ async function deleteScheduleById(scheduleId) {
   `;
   try {
     const { rows } = await db.query(query, [scheduleId]);
-    return mapRowToScheduleObject(rows[0]);
+    // 削除された場合、関連イベントも削除される(DBのCASCADE制約による)ので、
+    // mapRowToScheduleObject を通すと events は空配列になるはず
+    return mapRowToScheduleObject(rows[0]); // mapRowToScheduleObject は async なので await は不要 (呼び出し側で await する)
   } catch (error) {
     console.error('[DEBUG schedules.service.deleteScheduleById] Error:', error);
     throw error;
@@ -169,6 +175,6 @@ module.exports = {
   getScheduleById,
   updateScheduleById,
   deleteScheduleById,
-  mapRowToScheduleObject, // エクスポートに追加
-  formatHotelInfo,      // エクスポートに追加
+  mapRowToScheduleObject, 
+  formatHotelInfo,      
 };

@@ -54,7 +54,8 @@ async function createTrip(userId, tripData) {
 
     await client.query('COMMIT');
     
-    return getTripByIdWithSchedules(newTrip.id, userId, client);
+    // getTripByIdWithSchedules は内部で mapRowToScheduleObject (async) を使うので await する
+    return await getTripByIdWithSchedules(newTrip.id, userId, client);
 
   } catch (error) {
     await client.query('ROLLBACK');
@@ -86,7 +87,9 @@ async function getTripsByUserId(userId) {
         ORDER BY date ASC;
       `;
       const { rows: scheduleRows } = await db.query(schedulesQuery, [trip.id]);
-      return { ...trip, schedules: scheduleRows.map(mapRowToScheduleObject) }; // mapRowToScheduleObject を使用
+      // mapRowToScheduleObject は async なので、ここも Promise.all で待つ
+      const populatedSchedules = await Promise.all(scheduleRows.map(mapRowToScheduleObject));
+      return { ...trip, schedules: populatedSchedules }; 
     }));
     
     return tripsWithSchedules;
@@ -97,7 +100,7 @@ async function getTripsByUserId(userId) {
 }
 
 /**
- * 特定の旅程をIDで取得する (ユーザーIDも検証)
+ * 特定の旅程をIDで取得する (ユーザーIDも検証) - スケジュールは含まない
  * @param {string} tripId - 旅程ID
  * @param {string} userId - ユーザーID
  * @returns {Promise<object|null>} 旅程オブジェクトまたはnull
@@ -149,7 +152,8 @@ async function updateTripById(tripId, userId, tripData) {
   if (is_public !== undefined) { setClauses.push(`is_public = $${valueCount++}`); values.push(is_public); }
 
   if (setClauses.length === 0) {
-    return getTripById(tripId, userId); 
+    // 更新がない場合は、スケジュール付きで現在の旅程を返す
+    return getTripByIdWithSchedules(tripId, userId); 
   }
 
   const query = `
@@ -162,7 +166,11 @@ async function updateTripById(tripId, userId, tripData) {
 
   try {
     const { rows } = await db.query(query, values);
-    return rows.length > 0 ? rows[0] : null;
+    if (rows.length > 0) {
+      // 更新成功後、スケジュール付きで旅程を返す
+      return getTripByIdWithSchedules(rows[0].id, userId);
+    }
+    return null;
   } catch (error) {
     console.error('[DEBUG trips.service.updateTripById] Error updating trip:', error);
     throw error;
@@ -183,7 +191,7 @@ async function deleteTripById(tripId, userId) {
   `;
   try {
     const { rows } = await db.query(query, [tripId, userId]);
-    return rows.length > 0 ? rows[0] : null;
+    return rows.length > 0 ? rows[0] : null; // 削除された旅程情報を返す (スケジュールは含まない)
   } catch (error) {
     console.error('[DEBUG trips.service.deleteTripById] Error deleting trip:', error);
     throw error;
@@ -218,7 +226,8 @@ async function getTripByIdWithSchedules(tripId, userId, queryRunner = db) {
 
     const { rows: scheduleRows } = await queryRunner.query(schedulesQuery, [tripId]);
     console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched schedules (raw):', scheduleRows);
-    trip.schedules = scheduleRows.map(mapRowToScheduleObject); // mapRowToScheduleObject を使用
+    // mapRowToScheduleObject は async なので、Promise.all で待つ
+    trip.schedules = await Promise.all(scheduleRows.map(mapRowToScheduleObject)); 
 
     return trip;
   } catch (error) {
