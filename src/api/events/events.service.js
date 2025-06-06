@@ -10,13 +10,18 @@ const mapRowToEventObject = (row) => {
     name: row.name,
     category: row.category,
     description: row.description,
-    location: {
+    location: { // フロントエンドへ返す際はネストしたオブジェクトにする
       name: row.location_name,
       address: row.location_address,
       latitude: row.location_latitude ? parseFloat(row.location_latitude) : null,
       longitude: row.location_longitude ? parseFloat(row.location_longitude) : null,
     },
-    estimatedDurationMinutes: row.estimated_duration_minutes,
+    // DBカラム名を直接使用するフィールドもそのまま含める
+    location_name: row.location_name,
+    location_address: row.location_address,
+    location_latitude: row.location_latitude ? parseFloat(row.location_latitude) : null,
+    location_longitude: row.location_longitude ? parseFloat(row.location_longitude) : null,
+    estimated_duration_minutes: row.estimated_duration_minutes,
     type: row.type,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -30,12 +35,13 @@ const createEvent = async (scheduleId, eventData) => {
     name,
     category,
     description,
-    location, // オブジェクトとして受け取る
-    estimatedDurationMinutes,
+    location_name, // フロントエンドから直接渡される
+    location_address,
+    location_latitude,
+    location_longitude,
+    estimated_duration_minutes, // キー名をDBカラムに合わせる
     type,
   } = eventData;
-
-  const { name: location_name, address: location_address, latitude: location_latitude, longitude: location_longitude } = location || {};
 
   const result = await db.query(
     `INSERT INTO events (
@@ -47,7 +53,7 @@ const createEvent = async (scheduleId, eventData) => {
     [
       scheduleId, time, name, category, description,
       location_name, location_address, location_latitude, location_longitude,
-      estimatedDurationMinutes, type,
+      estimated_duration_minutes, type,
     ]
   );
   return mapRowToEventObject(result.rows[0]);
@@ -78,12 +84,13 @@ const updateEvent = async (eventId, scheduleId, eventData) => {
     name,
     category,
     description,
-    location,
-    estimatedDurationMinutes,
+    location_name, // フロントエンドから直接渡される
+    location_address,
+    location_latitude,
+    location_longitude,
+    estimated_duration_minutes, // キー名をDBカラムに合わせる
     type,
   } = eventData;
-
-  const { name: location_name, address: location_address, latitude: location_latitude, longitude: location_longitude } = location || {};
 
   const result = await db.query(
     `UPDATE events SET
@@ -103,7 +110,7 @@ const updateEvent = async (eventId, scheduleId, eventData) => {
     [
       time, name, category, description,
       location_name, location_address, location_latitude, location_longitude,
-      estimatedDurationMinutes, type,
+      estimated_duration_minutes, type,
       eventId, scheduleId,
     ]
   );
@@ -125,4 +132,5 @@ module.exports = {
   getEventsByScheduleId,
   updateEvent,
   deleteEvent,
+  mapRowToEventObject, // mapRowToEventObject もエクスポートしておく (他サービスで使う可能性)
 };
