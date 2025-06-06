@@ -1,4 +1,5 @@
 const db = require('../../db');
+const { mapRowToScheduleObject } = require('../schedules/schedules.service'); // インポート
 
 /**
  * 新しい旅程を作成し、期間内の空のスケジュールも自動生成する
@@ -78,16 +79,14 @@ async function getTripsByUserId(userId) {
   try {
     const { rows: trips } = await db.query(query, [userId]);
     
-    // 各旅程にスケジュール情報を追加
     const tripsWithSchedules = await Promise.all(trips.map(async (trip) => {
       const schedulesQuery = `
         SELECT * FROM public.schedules 
         WHERE trip_id = $1 
         ORDER BY date ASC;
       `;
-      // 注意: ここではトランザクション外なので、デフォルトのdb.queryを使用
       const { rows: scheduleRows } = await db.query(schedulesQuery, [trip.id]);
-      return { ...trip, schedules: scheduleRows || [] };
+      return { ...trip, schedules: scheduleRows.map(mapRowToScheduleObject) }; // mapRowToScheduleObject を使用
     }));
     
     return tripsWithSchedules;
@@ -218,8 +217,8 @@ async function getTripByIdWithSchedules(tripId, userId, queryRunner = db) {
     console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched trip:', trip);
 
     const { rows: scheduleRows } = await queryRunner.query(schedulesQuery, [tripId]);
-    console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched schedules:', scheduleRows);
-    trip.schedules = scheduleRows || []; 
+    console.log('[DEBUG trips.service.getTripByIdWithSchedules] Fetched schedules (raw):', scheduleRows);
+    trip.schedules = scheduleRows.map(mapRowToScheduleObject); // mapRowToScheduleObject を使用
 
     return trip;
   } catch (error) {

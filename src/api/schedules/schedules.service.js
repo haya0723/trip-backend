@@ -169,4 +169,6 @@ module.exports = {
   getScheduleById,
   updateScheduleById,
   deleteScheduleById,
+  mapRowToScheduleObject, // エクスポートに追加
+  formatHotelInfo,      // エクスポートに追加
 };
