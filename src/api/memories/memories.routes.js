@@ -7,9 +7,9 @@ const router = express.Router();
 // POST /api/memories - Create a new memory
 router.post(
   '/', 
-  authenticateToken, // コメントアウトを解除
+  // authenticateToken, // 再度一時的にコメントアウト
   // memoriesController.createMemory // 一時的にコメントアウト
-  (req, res) => { res.status(501).send('Not Implemented - Test Handler Only with Auth'); } // ダミーハンドラのみ
+  (req, res) => { res.status(501).send('Not Implemented - Test Handler Only, Auth commented out'); } // ダミーハンドラのみ
 );
 
 // 他のルート (GET, PUT, DELETE) もここに追加予定
