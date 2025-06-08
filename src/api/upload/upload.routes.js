@@ -5,18 +5,14 @@ const { authenticateToken } = require('../../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Configure multer for memory storage directly in routes for testing
-const storage = multer.memoryStorage();
-const uploadMiddleware = multer({ 
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 } 
-}).single('mediaFile');
-
 // POST /api/upload/media - Upload a single media file
 router.post(
   '/media', 
   authenticateToken, 
-  uploadMiddleware, // Use locally defined middleware
+  multer({ 
+    storage: multer.memoryStorage(), 
+    limits: { fileSize: 10 * 1024 * 1024 } 
+  }).single('mediaFile'), // Define multer middleware directly here
   uploadController.handleFileUpload 
 );
 
