@@ -55,6 +55,10 @@ try {
   app.use('/api/trips', tripsRoutes); // 旅程ルートをマウント
   console.log('Trips routes mounted on /api/trips');
 
+  const memoriesRoutes = require('./api/memories/memories.routes'); // 思い出ルートをインポート
+  app.use('/api/memories', memoriesRoutes); // 思い出ルートをマウント
+  console.log('Memories routes mounted on /api/memories');
+
   app.listen(port, () => {
     console.log(`Server listening at http://localhost:${port}`);
      console.log('テスト1');

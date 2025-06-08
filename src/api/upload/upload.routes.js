@@ -1,14 +1,15 @@
 const express = require('express');
-const router = express.Router();
 const uploadController = require('./upload.controller');
-const authenticateToken = require('../../middleware/authMiddleware');
+const { authenticateToken } = require('../../middleware/authMiddleware'); // 認証ミドルウェア
 
-// POST /api/upload/avatar - 認証されたユーザーのアバター画像をアップロード
+const router = express.Router();
+
+// POST /api/upload/media - Upload a single media file
 router.post(
-  '/avatar', 
-  authenticateToken, 
-  uploadController.uploadMiddleware, // multerミドルウェアで 'avatar' フィールドの単一ファイルを処理
-  uploadController.uploadAvatar
+  '/media', 
+  authenticateToken, // Requires authentication
+  uploadController.uploadMiddleware, // Multer middleware for single file upload with field name 'mediaFile'
+  uploadController.handleFileUpload   // Controller function to handle the upload
 );
 
 module.exports = router;
