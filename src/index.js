@@ -47,9 +47,9 @@ try {
   app.use('/api/users', userRoutes); // ユーザールートをマウント
   console.log('User routes mounted on /api/users');
 
-  const uploadRoutes = require('./api/upload/upload.routes'); // アップロードルートをインポート
-  app.use('/api/upload', uploadRoutes); // アップロードルートをマウント
-  console.log('Upload routes mounted on /api/upload');
+  // const uploadRoutes = require('./api/upload/upload.routes'); // アップロードルートを一時的にコメントアウト
+  // app.use('/api/upload', uploadRoutes); // アップロードルートを一時的にコメントアウト
+  // console.log('Upload routes temporarily unmounted.');
 
   const tripsRoutes = require('./api/trips/trips.routes'); // 旅程ルートをインポート
   app.use('/api/trips', tripsRoutes); // 旅程ルートをマウント
