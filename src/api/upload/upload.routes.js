@@ -1,7 +1,7 @@
 const express = require('express');
-// const multer = require('multer'); // multer のインポートを一時的にコメントアウト
+const multer = require('multer'); // multer のインポートのコメントアウトを解除
 const uploadController = require('./upload.controller');
-const { authenticateToken } = require('../../middleware/authMiddleware');
+const authenticateToken = require('../../middleware/authMiddleware'); // 分割代入をやめる
 
 const router = express.Router();
 
@@ -9,7 +9,10 @@ const router = express.Router();
 router.post(
   '/media', 
   authenticateToken, 
-  // multer({...}).single('mediaFile'), // multerミドルウェアを一時的にコメントアウト
+  multer({ // multerミドルウェアのコメントアウトを解除し、直接定義
+    storage: multer.memoryStorage(), 
+    limits: { fileSize: 10 * 1024 * 1024 } 
+  }).single('mediaFile'), 
   uploadController.handleFileUpload 
 );
 
