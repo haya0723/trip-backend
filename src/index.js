@@ -47,16 +47,16 @@ try {
   app.use('/api/users', userRoutes); // ユーザールートをマウント
   console.log('User routes mounted on /api/users');
 
-  // const uploadRoutes = require('./api/upload/upload.routes'); // アップロードルートを一時的にコメントアウト
-  // app.use('/api/upload', uploadRoutes); // アップロードルートを一時的にコメントアウト
-  // console.log('Upload routes temporarily unmounted.');
+  const uploadRoutes = require('./api/upload/upload.routes'); // アップロードルートのコメントアウトを解除
+  app.use('/api/upload', uploadRoutes); // アップロードルートのコメントアウトを解除
+  console.log('Upload routes mounted on /api/upload');
 
   const tripsRoutes = require('./api/trips/trips.routes'); // 旅程ルートをインポート
   app.use('/api/trips', tripsRoutes); // 旅程ルートをマウント
   console.log('Trips routes mounted on /api/trips');
 
-  const memoriesRoutes = require('./api/memories/memories.routes'); // 思い出ルートのコメントアウトを解除
-  app.use('/api/memories', memoriesRoutes); // 思い出ルートのコメントアウトを解除
+  const memoriesRoutes = require('./api/memories/memories.routes'); // 思い出ルートは有効なまま
+  app.use('/api/memories', memoriesRoutes); // 思い出ルートは有効なまま
   console.log('Memories routes mounted on /api/memories');
 
   app.listen(port, () => {
