@@ -36,5 +36,5 @@ async function handleFileUpload(req, res, next) {
 
 module.exports = {
   handleFileUpload,
-  uploadMiddleware: upload.single('mediaFile'), // Middleware to be used in routes
+  upload, // multerインスタンスをエクスポート
 };

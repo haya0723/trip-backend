@@ -8,7 +8,7 @@ const router = express.Router();
 router.post(
   '/media', 
   authenticateToken, // Requires authentication
-  uploadController.uploadMiddleware, // Multer middleware for single file upload with field name 'mediaFile'
+  uploadController.upload.single('mediaFile'), // Use the exported multer instance
   uploadController.handleFileUpload   // Controller function to handle the upload
 );
 
