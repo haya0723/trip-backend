@@ -8,8 +8,8 @@ const router = express.Router();
 router.post(
   '/', 
   authenticateToken, 
-  // memoriesController.createMemory // 一時的にコメントアウト
-  (req, res) => { res.status(501).send('Not Implemented - Test Handler Only with Auth, import fixed'); } 
+  memoriesController.createMemory // コメントアウトを解除
+  // (req, res) => { res.status(501).send('Not Implemented - Test Handler Only with Auth, import fixed'); } // ダミーハンドラをコメントアウト
 );
 
 // 他のルート (GET, PUT, DELETE) もここに追加予定
