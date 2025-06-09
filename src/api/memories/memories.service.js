@@ -88,12 +88,76 @@ async function getMemoriesByEventId(eventId, userId) {
   }
 }
 
-// 他のCRUD関数 (update, delete) もここに追加予定
+/**
+ * Update an existing memory by its ID and user ID.
+ * @param {string} memoryId - The ID of the memory to update.
+ * @param {string} userId - The ID of the user who owns the memory.
+ * @param {object} memoryData - Fields to update (notes, rating, media_urls).
+ * @returns {Promise<object|null>} The updated memory object, or null if not found or not owned by user.
+ */
+async function updateMemoryById(memoryId, userId, memoryData) {
+  const { notes, rating, media_urls } = memoryData;
+
+  if (!memoryId || !userId) {
+    throw new Error('Memory ID and User ID are required to update a memory.');
+  }
+
+  const setClauses = [];
+  const values = [];
+  let valueCount = 1;
+
+  if (notes !== undefined) {
+    setClauses.push(`notes = $${valueCount++}`);
+    values.push(notes);
+  }
+  if (rating !== undefined) {
+    setClauses.push(`rating = $${valueCount++}`);
+    values.push(rating);
+  }
+  if (media_urls !== undefined) {
+    setClauses.push(`media_urls = $${valueCount++}`);
+    values.push(media_urls);
+  }
+
+  if (setClauses.length === 0) {
+    // If nothing to update, we could return the existing memory or an error.
+    // For now, let's assume an update means at least one field is changing.
+    // Alternatively, fetch and return the current memory if no changes.
+    const currentMemoryQuery = 'SELECT * FROM public.memories WHERE id = $1 AND user_id = $2';
+    const currentMemoryRes = await db.query(currentMemoryQuery, [memoryId, userId]);
+    if (currentMemoryRes.rows.length === 0) return null; // Not found or not owned
+    return currentMemoryRes.rows[0]; // No changes, return current
+  }
+
+  values.push(memoryId);
+  values.push(userId);
+
+  const query = `
+    UPDATE public.memories
+    SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $${valueCount++} AND user_id = $${valueCount++}
+    RETURNING *;
+  `;
+
+  try {
+    const { rows } = await db.query(query, values);
+    if (rows.length === 0) {
+      return null; // Memory not found or user does not own it
+    }
+    return rows[0];
+  } catch (error) {
+    console.error('[DEBUG memories.service.updateMemoryById] Error:', error);
+    throw error;
+  }
+}
+
+
+// 他のCRUD関数 (delete) もここに追加予定
 
 module.exports = {
   createMemory,
   getMemoriesByTripId,
   getMemoriesByEventId,
-  // updateMemoryById,
+  updateMemoryById,
   // deleteMemoryById,
 };

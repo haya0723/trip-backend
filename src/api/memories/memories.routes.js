@@ -8,10 +8,12 @@ const router = express.Router();
 router.post(
   '/', 
   authenticateToken, 
-  memoriesController.createMemory // コメントアウトを解除
-  // (req, res) => { res.status(501).send('Not Implemented - Test Handler Only with Auth, import fixed'); } // ダミーハンドラをコメントアウト
+  memoriesController.createMemory 
 );
 
-// 他のルート (GET, PUT, DELETE) もここに追加予定
+// PUT /api/memories/:memoryId - Update a specific memory
+router.put('/:memoryId', authenticateToken, memoriesController.updateMemory);
+
+// 他のルート (GET, DELETE) もここに追加予定
 
 module.exports = router;

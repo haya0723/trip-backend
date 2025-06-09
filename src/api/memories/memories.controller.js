@@ -47,9 +47,6 @@ async function getMemoriesByTrip(req, res, next) {
 async function getMemoriesByEvent(req, res, next) {
   try {
     const userId = req.user.id;
-    // ネストされたルート /api/trips/:tripId/schedules/:scheduleId/events/:eventId/memories の場合、
-    // eventId は req.params.eventId で取得できる。
-    // もし /api/memories?event_id=... のようなクエリパラメータ形式なら req.query.event_id
     const { eventId } = req.params; 
 
     // TODO: eventId の所有権検証
@@ -66,12 +63,40 @@ async function getMemoriesByEvent(req, res, next) {
   }
 }
 
-// 他のコントローラ関数 (update, delete) もここに追加予定
+async function updateMemory(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { memoryId } = req.params;
+    const memoryData = req.body;
+
+    // TODO: memoryData のバリデーション (例: 更新可能なフィールドのみ許可)
+    // TODO: memoryId の所有権検証 (サービス層でも行っているが、コントローラ層でも事前チェックが望ましい場合も)
+
+    if (Object.keys(memoryData).length === 0) {
+        return res.status(400).json({ error: 'No data provided for update.' });
+    }
+
+    const updatedMemory = await memoryService.updateMemoryById(memoryId, userId, memoryData);
+
+    if (!updatedMemory) {
+      return res.status(404).json({ error: 'Memory not found or not authorized to update.' });
+    }
+    res.status(200).json(updatedMemory);
+  } catch (error) {
+    console.error('[DEBUG memories.controller.updateMemory] Error:', error);
+    if (error.message.includes('No fields provided to update')) { // This specific error from service
+        return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'Failed to update memory.' });
+  }
+}
+
+// 他のコントローラ関数 (delete) もここに追加予定
 
 module.exports = {
   createMemory,
   getMemoriesByTrip,
   getMemoriesByEvent,
-  // updateMemory,
+  updateMemory,
   // deleteMemory,
 };
