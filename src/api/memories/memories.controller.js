@@ -1,14 +1,14 @@
 const memoryService = require('./memories.service');
-// TODO: 必要に応じて tripService や eventService をインポートして所有権検証を行う
+// const tripService = require('../trips/trips.service'); // TODO: 所有権検証のために必要
+// const eventService = require('../events/events.service'); // TODO: 所有権検証のために必要
 
 async function createMemory(req, res, next) {
   try {
-    const userId = req.user.id; // authenticateTokenミドルウェアから取得
+    const userId = req.user.id; 
     const memoryData = req.body; 
 
-    // TODO: memoryData のバリデーション (例: event_id または trip_id が存在し、かつ有効か)
-    // 例えば、event_id が指定された場合、そのイベントが本当にこのユーザーの旅程に属するか検証するなど。
-    // trip_id が指定された場合も同様。
+    // TODO: memoryData のバリデーション
+    // TODO: event_id や trip_id の所有権検証
 
     if (!memoryData.notes && (!memoryData.media_urls || memoryData.media_urls.length === 0)) {
       return res.status(400).json({ error: 'Memory must have notes or media.' });
@@ -25,11 +25,53 @@ async function createMemory(req, res, next) {
   }
 }
 
-// 他のコントローラ関数 (get, update, delete) もここに追加予定
+async function getMemoriesByTrip(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { tripId } = req.params; 
+
+    // TODO: tripId の所有権検証
+    // const trip = await tripService.getTripByIdAndUser(tripId, userId);
+    // if (!trip) {
+    //   return res.status(404).json({ error: 'Trip not found or access denied.' });
+    // }
+
+    const memories = await memoryService.getMemoriesByTripId(tripId, userId);
+    res.status(200).json(memories);
+  } catch (error) {
+    console.error('[DEBUG memories.controller.getMemoriesByTrip] Error:', error);
+    res.status(500).json({ error: 'Failed to get memories for trip.' });
+  }
+}
+
+async function getMemoriesByEvent(req, res, next) {
+  try {
+    const userId = req.user.id;
+    // ネストされたルート /api/trips/:tripId/schedules/:scheduleId/events/:eventId/memories の場合、
+    // eventId は req.params.eventId で取得できる。
+    // もし /api/memories?event_id=... のようなクエリパラメータ形式なら req.query.event_id
+    const { eventId } = req.params; 
+
+    // TODO: eventId の所有権検証
+    // const event = await eventService.getEventByIdAndUser(eventId, userId); 
+    // if (!event) {
+    //   return res.status(404).json({ error: 'Event not found or access denied.' });
+    // }
+
+    const memories = await memoryService.getMemoriesByEventId(eventId, userId);
+    res.status(200).json(memories);
+  } catch (error) {
+    console.error('[DEBUG memories.controller.getMemoriesByEvent] Error:', error);
+    res.status(500).json({ error: 'Failed to get memories for event.' });
+  }
+}
+
+// 他のコントローラ関数 (update, delete) もここに追加予定
 
 module.exports = {
   createMemory,
-  // getMemories, (旅程やイベントに紐づく思い出一覧を取得する想定)
+  getMemoriesByTrip,
+  getMemoriesByEvent,
   // updateMemory,
   // deleteMemory,
 };

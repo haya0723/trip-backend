@@ -3,6 +3,7 @@ const router = express.Router();
 const tripsController = require('./trips.controller');
 const authenticateToken = require('../../middleware/authMiddleware');
 const schedulesRouter = require('../schedules/schedules.routes'); // schedulesRouterをインポート
+const memoriesController = require('../memories/memories.controller'); // memoriesControllerをインポート
 
 // すべての /api/trips ルートに認証ミドルウェアを適用
 router.use(authenticateToken);
@@ -28,5 +29,8 @@ router.post('/:tripId/generate-schedules-ai', tripsController.generateSchedulesA
 // ネストされたSchedulesルートをマウント
 // /api/trips/:tripId/schedules へのリクエストをschedulesRouterに流す
 router.use('/:tripId/schedules', schedulesRouter);
+
+// GET /api/trips/:tripId/memories - 特定の旅程の思い出一覧を取得
+router.get('/:tripId/memories', memoriesController.getMemoriesByTrip);
 
 module.exports = router;

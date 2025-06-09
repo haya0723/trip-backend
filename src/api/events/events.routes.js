@@ -3,6 +3,7 @@ const router = express.Router({ mergeParams: true }); // mergeParams: true で�
 const eventsController = require('./events.controller');
 const authenticateToken = require('../../middleware/authMiddleware');
 const { authorizeScheduleAccess } = require('../schedules/schedules.controller'); // authorizeScheduleAccessをインポート
+const memoriesController = require('../memories/memories.controller'); // memoriesControllerをインポート
 
 // すべての /api/schedules/:scheduleId/events ルートに認証ミドルウェアとスケジュール権限ミドルウェアを適用
 router.use(authenticateToken);
@@ -22,5 +23,8 @@ router.put('/:eventId', eventsController.updateEvent);
 
 // DELETE /api/schedules/:scheduleId/events/:eventId - 特定のイベントを削除
 router.delete('/:eventId', eventsController.deleteEvent);
+
+// GET /api/schedules/:scheduleId/events/:eventId/memories - 特定のイベントの思い出一覧を取得
+router.get('/:eventId/memories', memoriesController.getMemoriesByEvent);
 
 module.exports = router;

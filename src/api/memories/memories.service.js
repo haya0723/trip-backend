@@ -40,12 +40,60 @@ async function createMemory(userId, memoryData) {
   }
 }
 
-// 他のCRUD関数 (get, update, delete) もここに追加予定
+/**
+ * Get all memories associated with a specific trip for a user.
+ * @param {string} tripId - The ID of the trip.
+ * @param {string} userId - The ID of the user.
+ * @returns {Promise<object[]>} An array of memory objects.
+ */
+async function getMemoriesByTripId(tripId, userId) {
+  if (!tripId || !userId) {
+    throw new Error('Trip ID and User ID are required to fetch memories by trip.');
+  }
+  const query = `
+    SELECT * FROM public.memories
+    WHERE trip_id = $1 AND user_id = $2
+    ORDER BY created_at DESC;
+  `;
+  try {
+    const { rows } = await db.query(query, [tripId, userId]);
+    return rows;
+  } catch (error) {
+    console.error('[DEBUG memories.service.getMemoriesByTripId] Error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all memories associated with a specific event for a user.
+ * @param {string} eventId - The ID of the event.
+ * @param {string} userId - The ID of the user.
+ * @returns {Promise<object[]>} An array of memory objects.
+ */
+async function getMemoriesByEventId(eventId, userId) {
+  if (!eventId || !userId) {
+    throw new Error('Event ID and User ID are required to fetch memories by event.');
+  }
+  const query = `
+    SELECT * FROM public.memories
+    WHERE event_id = $1 AND user_id = $2
+    ORDER BY created_at DESC;
+  `;
+  try {
+    const { rows } = await db.query(query, [eventId, userId]);
+    return rows;
+  } catch (error) {
+    console.error('[DEBUG memories.service.getMemoriesByEventId] Error:', error);
+    throw error;
+  }
+}
+
+// 他のCRUD関数 (update, delete) もここに追加予定
 
 module.exports = {
   createMemory,
-  // getMemoriesByTripId,
-  // getMemoriesByEventId,
+  getMemoriesByTripId,
+  getMemoriesByEventId,
   // updateMemoryById,
   // deleteMemoryById,
 };
