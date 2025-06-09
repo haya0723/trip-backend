@@ -7,6 +7,26 @@ const db = require('../../db');
  * @returns {Promise<object|null>} プロフィール情報オブジェクトまたはnull
  */
 async function getUserProfileById(userId) {
+  // 問題切り分けのため、一時的にクエリを簡略化
+  // const query = `
+  //   SELECT 
+  //     u.id, 
+  //     u.nickname, 
+  //     u.email, 
+  //     u.created_at AS user_created_at, 
+  //     u.updated_at AS user_updated_at
+  //     // up.bio, // 一時的にコメントアウト
+  //     // up.avatar_url, 
+  //     // up.created_at AS profile_created_at,
+  //     // up.updated_at AS profile_updated_at
+  //   FROM 
+  //     public.users u
+  //   -- LEFT JOIN 
+  //   --   public.user_profiles up ON u.id = up.user_id // 一時的にコメントアウト
+  //   WHERE 
+  //     u.id = $1;
+  // `;
+  // 元のクエリに戻し、スキーマ名を省略してみる（search_pathがpublicに設定されているため）
   const query = `
     SELECT 
       u.id, 
@@ -15,29 +35,30 @@ async function getUserProfileById(userId) {
       u.created_at AS user_created_at, 
       u.updated_at AS user_updated_at,
       up.bio,
-      up.avatar_url, // DBからはavatar_urlで取得
+      up.avatar_url,
       up.created_at AS profile_created_at,
       up.updated_at AS profile_updated_at
     FROM 
-      public.users u
+      users u
     LEFT JOIN 
-      public.user_profiles up ON u.id = up.user_id
+      user_profiles up ON u.id = up.user_id
     WHERE 
       u.id = $1;
   `;
   try {
+    console.log('[DEBUG users.service.getUserProfileById] Executing query:', query, 'with userId:', userId);
     const { rows } = await db.query(query, [userId]);
+    console.log('[DEBUG users.service.getUserProfileById] Query result rows:', rows);
     if (rows.length === 0) {
       return null;
     }
     const userProfileData = rows[0];
-    // フロントエンドの期待に合わせて avatarUrl (キャメルケース) で返す
     return {
       id: userProfileData.id,
       nickname: userProfileData.nickname,
       email: userProfileData.email,
       bio: userProfileData.bio,
-      avatarUrl: userProfileData.avatar_url, // マッピング
+      avatarUrl: userProfileData.avatar_url,
       createdAt: userProfileData.user_created_at,
       updatedAt: userProfileData.user_updated_at,
     };
@@ -54,63 +75,44 @@ async function getUserProfileById(userId) {
  * @returns {Promise<object>} 更新後のプロフィール情報
  */
 async function updateUserProfile(userId, profileData) {
-  // コントローラから渡される profileData は avatar_url (スネークケース) を含む想定
   const { nickname, bio, avatar_url } = profileData; 
   const client = await db.pool.connect(); 
-
   try {
-    console.log(`[DEBUG users.service.updateUserProfile] Starting transaction for userId: ${userId}`);
     await client.query('BEGIN');
-    console.log('[DEBUG users.service.updateUserProfile] BEGIN transaction successful.');
-
     if (nickname !== undefined) {
-      console.log(`[DEBUG users.service.updateUserProfile] Updating nickname for userId: ${userId} to: ${nickname}`);
       await client.query(
-        'UPDATE public.users SET nickname = $1, updated_at = current_timestamp WHERE id = $2',
+        'UPDATE users SET nickname = $1, updated_at = current_timestamp WHERE id = $2',
         [nickname, userId]
       );
     }
-
-    // bio または avatar_url が提供された場合に user_profiles を更新
-    // avatar_url が undefined でないことを確認 (null は許容し、DBでNULLに更新する)
     if (bio !== undefined || avatar_url !== undefined) { 
-      console.log(`[DEBUG users.service.updateUserProfile] Upserting user_profiles for userId: ${userId} with bio: ${bio}, avatar_url: ${avatar_url}`);
-      const upsertQuery = `
-        INSERT INTO public.user_profiles (user_id, bio, avatar_url, created_at, updated_at)
-        VALUES ($1, $2, $3, current_timestamp, current_timestamp)
-        ON CONFLICT (user_id) 
-        DO UPDATE SET 
-          bio = COALESCE($2, user_profiles.bio), 
-          avatar_url = $3, // avatar_url は提供された値で常に上書き (null も含む)
-          updated_at = current_timestamp
-        RETURNING user_id, bio, avatar_url, updated_at; 
-      `;
-      // bio は COALESCE を使用して、もし bio が undefined なら既存の値を維持するように変更も検討可能
-      // ただし、コントローラで undefined の場合はキー自体を含めないようにしているので、
-      // ここでは EXCLUDED を使わずに直接値をバインドする方がシンプルかもしれない。
-      // 今回は、avatar_url は提供された値で上書き（null含む）、bioも同様とする。
-      // もし bio が undefined の場合は、SQLクエリの $2 が undefined となりエラーになる可能性があるため、
-      // profileDataToUpdate を作成するコントローラ側で、undefined のキーは含めないようにするのが良い。
-      // ここでは、コントローラが avatar_url: undefined の場合はキー自体を送らないと仮定し、
-      // avatar_url: null の場合は null で上書きされるようにする。
-      // bio も同様。
       const params = [userId];
       let setClauses = [];
-      let valueIndex = 2; // $1 は userId
+      let columnsToInsert = ['user_id'];
+      let valuesToInsert = ['$1'];
+      let valueIndex = 2;
 
       if (bio !== undefined) {
         params.push(bio);
+        columnsToInsert.push('bio');
+        valuesToInsert.push(`$${valueIndex}`);
         setClauses.push(`bio = $${valueIndex++}`);
       }
       if (avatar_url !== undefined) {
         params.push(avatar_url);
+        columnsToInsert.push('avatar_url');
+        valuesToInsert.push(`$${valueIndex}`);
         setClauses.push(`avatar_url = $${valueIndex++}`);
       }
       
       if (setClauses.length > 0) {
+        // created_at, updated_at を列リストとVALUES句に追加
+        columnsToInsert.push('created_at', 'updated_at');
+        valuesToInsert.push('current_timestamp', 'current_timestamp');
+
         const updateQuery = `
-          INSERT INTO public.user_profiles (user_id, ${setClauses.map(s => s.split(' =')[0]).join(', ')}, created_at, updated_at)
-          VALUES ($1, ${params.slice(1).map((_,i) => `$${i+2}`).join(', ')}, current_timestamp, current_timestamp)
+          INSERT INTO user_profiles (${columnsToInsert.join(', ')})
+          VALUES (${valuesToInsert.join(', ')})
           ON CONFLICT (user_id)
           DO UPDATE SET
             ${setClauses.join(', ')},
@@ -121,21 +123,14 @@ async function updateUserProfile(userId, profileData) {
          await client.query(updateQuery, params);
       }
     }
-
-    console.log('[DEBUG users.service.updateUserProfile] Attempting to COMMIT transaction.');
     await client.query('COMMIT');
-    console.log('[DEBUG users.service.updateUserProfile] COMMIT transaction successful.');
-
     return getUserProfileById(userId);
-
   } catch (error) {
-    console.error('[DEBUG users.service.updateUserProfile] Error during transaction, attempting ROLLBACK:', error);
     await client.query('ROLLBACK');
-    console.error('[DEBUG users.service.updateUserProfile] ROLLBACK successful.');
+    console.error('[DEBUG users.service.updateUserProfile] Error during transaction, ROLLBACK successful:', error);
     throw error;
   } finally {
     client.release();
-    console.log('[DEBUG users.service.updateUserProfile] Client released.');
   }
 }
 
