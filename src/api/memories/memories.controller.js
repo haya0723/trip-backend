@@ -84,19 +84,36 @@ async function updateMemory(req, res, next) {
     res.status(200).json(updatedMemory);
   } catch (error) {
     console.error('[DEBUG memories.controller.updateMemory] Error:', error);
-    if (error.message.includes('No fields provided to update')) { // This specific error from service
+    if (error.message.includes('No fields provided to update')) { 
         return res.status(400).json({ error: error.message });
     }
     res.status(500).json({ error: 'Failed to update memory.' });
   }
 }
 
-// 他のコントローラ関数 (delete) もここに追加予定
+async function deleteMemory(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { memoryId } = req.params;
+
+    // TODO: memoryId の所有権検証
+
+    const deletedCount = await memoryService.deleteMemoryById(memoryId, userId);
+
+    if (deletedCount === 0) {
+      return res.status(404).json({ error: 'Memory not found or not authorized to delete.' });
+    }
+    res.status(204).send(); // No Content
+  } catch (error) {
+    console.error('[DEBUG memories.controller.deleteMemory] Error:', error);
+    res.status(500).json({ error: 'Failed to delete memory.' });
+  }
+}
 
 module.exports = {
   createMemory,
   getMemoriesByTrip,
   getMemoriesByEvent,
   updateMemory,
-  // deleteMemory,
+  deleteMemory, // deleteMemory をエクスポートに追加
 };
