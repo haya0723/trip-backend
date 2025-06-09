@@ -7,8 +7,7 @@ const bucketName = process.env.GCS_BUCKET_NAME;
 
 if (!bucketName) {
   console.error("GCS_BUCKET_NAME environment variable is not set.");
-  // throw new Error("GCS_BUCKET_NAME environment variable is not set."); 
-  // アプリケーション起動時にエラーにするか、ログのみにするかは要件による
+  throw new Error("GCS_BUCKET_NAME environment variable is not set."); 
 }
 
 /**
@@ -17,17 +16,17 @@ if (!bucketName) {
  * @returns {Promise<string>} The public URL of the uploaded file.
  */
 async function uploadFileToGCS(fileObject) {
-  if (!bucketName) {
-    throw new Error("GCS bucket name is not configured.");
-  }
+  // bucketNameのチェックはモジュールロード時に行われるため、ここでは不要
+  // if (!bucketName) { 
+  //   throw new Error("GCS bucket name is not configured.");
+  // }
   if (!fileObject) {
     throw new Error("No file provided for upload.");
   }
 
   const bucket = storage.bucket(bucketName);
-  // Generate a unique filename using UUID and original extension
   const uniqueFilename = `${uuidv4()}${path.extname(fileObject.originalname)}`;
-  const blob = bucket.file(`media/${uniqueFilename}`); // Store in a 'media' folder
+  const blob = bucket.file(`media/${uniqueFilename}`); 
 
   const blobStream = blob.createWriteStream({
     resumable: false,
@@ -41,10 +40,6 @@ async function uploadFileToGCS(fileObject) {
     });
 
     blobStream.on('finish', async () => {
-      // The file upload is complete.
-      // Make the file public (optional, depends on your GCS bucket/object ACL settings)
-      // For simplicity, we assume objects are publicly readable or use signed URLs in a real app.
-      // Here, we construct the public URL directly.
       const publicUrl = `https://storage.googleapis.com/${bucketName}/${blob.name}`;
       console.log(`[upload.service] File ${blob.name} uploaded to ${bucketName}. Public URL: ${publicUrl}`);
       resolve(publicUrl);

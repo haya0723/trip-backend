@@ -120,13 +120,10 @@ async function updateMemoryById(memoryId, userId, memoryData) {
   }
 
   if (setClauses.length === 0) {
-    // If nothing to update, we could return the existing memory or an error.
-    // For now, let's assume an update means at least one field is changing.
-    // Alternatively, fetch and return the current memory if no changes.
     const currentMemoryQuery = 'SELECT * FROM public.memories WHERE id = $1 AND user_id = $2';
     const currentMemoryRes = await db.query(currentMemoryQuery, [memoryId, userId]);
-    if (currentMemoryRes.rows.length === 0) return null; // Not found or not owned
-    return currentMemoryRes.rows[0]; // No changes, return current
+    if (currentMemoryRes.rows.length === 0) return null; 
+    return currentMemoryRes.rows[0]; 
   }
 
   values.push(memoryId);
@@ -142,7 +139,7 @@ async function updateMemoryById(memoryId, userId, memoryData) {
   try {
     const { rows } = await db.query(query, values);
     if (rows.length === 0) {
-      return null; // Memory not found or user does not own it
+      return null; 
     }
     return rows[0];
   } catch (error) {
@@ -151,13 +148,36 @@ async function updateMemoryById(memoryId, userId, memoryData) {
   }
 }
 
+/**
+ * Delete a memory by its ID and user ID.
+ * @param {string} memoryId - The ID of the memory to delete.
+ * @param {string} userId - The ID of the user who owns the memory.
+ * @returns {Promise<number>} The number of rows deleted (0 or 1).
+ */
+async function deleteMemoryById(memoryId, userId) {
+  if (!memoryId || !userId) {
+    throw new Error('Memory ID and User ID are required to delete a memory.');
+  }
 
-// 他のCRUD関数 (delete) もここに追加予定
+  const query = `
+    DELETE FROM public.memories
+    WHERE id = $1 AND user_id = $2
+    RETURNING id; 
+  `;
+
+  try {
+    const { rowCount } = await db.query(query, [memoryId, userId]);
+    return rowCount; 
+  } catch (error) {
+    console.error('[DEBUG memories.service.deleteMemoryById] Error:', error);
+    throw error;
+  }
+}
 
 module.exports = {
   createMemory,
   getMemoriesByTripId,
   getMemoriesByEventId,
   updateMemoryById,
-  // deleteMemoryById,
+  deleteMemoryById,
 };

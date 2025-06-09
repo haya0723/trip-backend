@@ -14,6 +14,9 @@ router.post(
 // PUT /api/memories/:memoryId - Update a specific memory
 router.put('/:memoryId', authenticateToken, memoriesController.updateMemory);
 
-// 他のルート (GET, DELETE) もここに追加予定
+// DELETE /api/memories/:memoryId - Delete a specific memory
+router.delete('/:memoryId', authenticateToken, memoriesController.deleteMemory);
+
+// 他のルート (GET) もここに追加予定 (例: GET /:memoryId - 特定の思い出を取得)
 
 module.exports = router;
