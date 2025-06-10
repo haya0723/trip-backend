@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:5173", "https://trip-app-final-v2-493005991008.asia-northeast1.run.app"],
+    "method": ["GET"],
+    "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"],
+    "maxAgeSeconds": 3600
+  }
+]

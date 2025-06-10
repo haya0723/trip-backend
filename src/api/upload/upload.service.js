@@ -40,16 +40,13 @@ async function uploadFileToGCS(fileObject) {
     });
 
     blobStream.on('finish', async () => {
-      try {
-        // Make the file public
-        await blob.makePublic();
-        const publicUrl = `https://storage.googleapis.com/${bucketName}/${blob.name}`;
-        console.log(`[upload.service] File ${blob.name} uploaded to ${bucketName} and made public. Public URL: ${publicUrl}`);
-        resolve(publicUrl);
-      } catch (publicError) {
-        console.error(`[upload.service] Failed to make file public: ${blob.name}`, publicError);
-        reject(new Error(`Failed to make file public: ${publicError.message}`));
-      }
+      // Uniform bucket-level access is enabled, so we cannot use blob.makePublic().
+      // Object ACLs are disabled. Access control is managed by IAM policies at the bucket level.
+      // Ensure the bucket's IAM policy grants public read access if objects are intended to be public.
+      const publicUrl = `https://storage.googleapis.com/${bucketName}/${blob.name}`;
+      console.log(`[upload.service] File ${blob.name} uploaded to ${bucketName}. Public URL: ${publicUrl}`);
+      console.log(`[upload.service] NOTE: Uniform bucket-level access is enabled. Ensure bucket IAM policy allows public reads for this URL to be accessible.`);
+      resolve(publicUrl);
     });
 
     blobStream.end(fileObject.buffer);
