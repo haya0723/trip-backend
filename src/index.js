@@ -20,7 +20,9 @@ try {
   app.use(cors());
   console.log('CORS middleware initialized and allowing all origins.');
 
-  app.use(express.json()); // JSONリクエストボディをパースするため
+  // Increase payload size limit for JSON and URL-encoded requests
+  app.use(express.json({ limit: '50mb' })); 
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // ヘルスチェックエンドポイント
   app.get('/health', (req, res) => {
